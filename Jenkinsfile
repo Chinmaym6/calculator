@@ -9,7 +9,7 @@ pipeline {
         // EC2 credentials - configure these in Jenkins credentials
         EC2_CREDENTIALS = credentials('ec2-ssh-key')
         EC2_HOST = '54.161.195.40' // Replace with your EC2 public IP
-        EC2_USER = 'ubuntu' // or ubuntu depending on your AMI
+        EC2_USER = 'ubuntu'
     }
     
     stages {
@@ -21,26 +21,14 @@ pipeline {
             }
         }
         
-        stage('Install Dependencies') {
-            steps {
-                echo 'Installing Node.js dependencies...'
-                sh 'npm ci'
-            }
-        }
-        
-        stage('Build Application') {
-            steps {
-                echo 'Building React application...'
-                sh 'npm run build'
-            }
-        }
-        
         stage('Build Docker Image') {
             steps {
-                echo 'Building Docker image...'
+                echo 'Building Docker image (this will install dependencies and build the app)...'
                 script {
-                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
-                    docker.build("${DOCKER_IMAGE}:latest")
+                    // Build the Docker image - this handles npm install and npm build internally
+                    def image = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+                    // Also tag as latest
+                    image.tag("latest")
                 }
             }
         }
