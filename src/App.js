@@ -28,7 +28,7 @@ function App() {
   return (
     <div className="calculator-container">
       <div className="calculator">
-        <h1 style={{ color: "white" }}>Chinam's Calculator</h1>
+        <h1 style={{ color: "white" }}>Poorvis's Calculator</h1>
         <div className="display">{display || "0"}</div>
         <div className="buttons">
           {buttons.map((btn) => (
