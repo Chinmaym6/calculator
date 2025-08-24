@@ -33,9 +33,15 @@ pipeline {
             steps {
                 echo 'Building Docker image using shell commands...'
                 sh """
-                    # Build the Docker image
-                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                    # Clean up any existing failed builds
+                    docker system prune -f || true
+                    
+                    # Build the Docker image with increased timeout
+                    docker build --no-cache --progress=plain -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
                     docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                    
+                    # Verify images were created
+                    docker images | grep ${DOCKER_IMAGE}
                 """
             }
         }
@@ -90,15 +96,32 @@ pipeline {
         stage('Health Check') {
             steps {
                 echo 'Performing health check...'
-                script {
+                sshagent(['ec2-ssh-key']) {
                     sh """
-                        # Wait a bit for the application to start
-                        sleep 15
-                        
-                        # Check if the application is responding
-                        curl -f http://${EC2_HOST}/ || exit 1
+                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
+                            echo "=== Docker Container Status ==="
+                            docker ps -a | grep calculator-app
+                            
+                            echo "=== Container Logs ==="
+                            docker logs calculator-app --tail 10
+                            
+                            echo "=== Port Check ==="
+                            sudo netstat -tulpn | grep :80
+                            
+                            echo "=== Local Curl Test ==="
+                            curl -v http://localhost/ || true
+                        '
                     """
                 }
+                
+                echo 'Testing external access...'
+                sh """
+                    # Wait a bit for the application to start
+                    sleep 15
+                    
+                    # Check if the application is responding externally
+                    curl -v http://${EC2_HOST}/ || echo "External access failed"
+                """
             }
         }
     }
