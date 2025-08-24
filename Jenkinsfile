@@ -21,27 +21,41 @@ pipeline {
             }
         }
         
+        stage('Verify Files') {
+            steps {
+                echo 'Verifying Dockerfile exists...'
+                sh 'ls -la'
+                sh 'pwd'
+            }
+        }
+        
         stage('Build Docker Image') {
             steps {
-                echo 'Building Docker image (this will install dependencies and build the app)...'
-                script {
-                    // Build the Docker image - this handles npm install and npm build internally
-                    def image = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
-                    // Also tag as latest
-                    image.tag("latest")
-                }
+                echo 'Building Docker image using shell commands...'
+                sh """
+                    # Build the Docker image
+                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                    docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                """
+            }
+        }
+        
+        stage('Login to Docker Hub') {
+            steps {
+                echo 'Logging into Docker Hub...'
+                sh """
+                    echo \$DOCKER_HUB_CREDENTIALS_PSW | docker login -u \$DOCKER_HUB_CREDENTIALS_USR --password-stdin
+                """
             }
         }
         
         stage('Push to Docker Hub') {
             steps {
                 echo 'Pushing Docker image to Docker Hub...'
-                script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
-                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-                        docker.image("${DOCKER_IMAGE}:latest").push()
-                    }
-                }
+                sh """
+                    docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+                    docker push ${DOCKER_IMAGE}:latest
+                """
             }
         }
         
@@ -91,16 +105,21 @@ pipeline {
     
     post {
         always {
-            echo 'Cleaning up workspace...'
+            echo 'Cleaning up workspace and Docker images...'
+            sh """
+                # Logout from Docker Hub
+                docker logout || true
+                # Clean up local images to save space
+                docker rmi ${DOCKER_IMAGE}:${DOCKER_TAG} || true
+                docker rmi ${DOCKER_IMAGE}:latest || true
+            """
             cleanWs()
         }
         success {
             echo 'Pipeline completed successfully!'
-            // You can add notification steps here (email, Slack, etc.)
         }
         failure {
             echo 'Pipeline failed!'
-            // You can add failure notification steps here
         }
     }
 }
