@@ -36,8 +36,8 @@ pipeline {
                     # Clean up any existing failed builds
                     docker system prune -f || true
                     
-                    # Build the Docker image with increased timeout
-                    docker build --no-cache --progress=plain -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                    # Build the Docker image (removed --progress flag for compatibility)
+                    docker build --no-cache -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
                     docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
                     
                     # Verify images were created
